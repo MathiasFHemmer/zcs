@@ -2,13 +2,13 @@ const std = @import("std");
 const Reader = std.io.Reader;
 
 pub const Deserializer = struct {
-    pub fn deserialize(comptime T: type, reader: *Reader, allocator: ?std.mem.Allocator) !T {
+    pub fn deserialize(comptime T: type, reader: *Reader, allocator: std.mem.Allocator) !T {
         const info = @typeInfo(T);
 
         switch (info) {
             .@"struct" => |struct_info| {
                 if (@hasDecl(T, "deserialize")) {
-                    return try T.deserialize(reader, allocator, Deserializer);
+                    return try T.deserialize(reader, allocator);
                 }
 
                 var result: T = undefined;
@@ -21,7 +21,7 @@ pub const Deserializer = struct {
         }
     }
 
-    fn deserializeField(comptime T: type, reader: *Reader, allocator: ?std.mem.Allocator, comptime ParentType: type, comptime field_name: ?[]const u8) !T {
+    fn deserializeField(comptime T: type, reader: *Reader, allocator: std.mem.Allocator, comptime ParentType: type, comptime field_name: ?[]const u8) !T {
         const info = @typeInfo(T);
         switch (info) {
             .bool => return try readBool(reader),
@@ -43,9 +43,6 @@ pub const Deserializer = struct {
             .pointer => |ptr_info| {
                 switch (ptr_info.size) {
                     .Slice => {
-                        if (allocator == null) {
-                            return error.AllocatorRequiredForSlices;
-                        }
                         const length = try readInt(reader, usize, .little);
                         const slice = try allocator.?.alloc(ptr_info.child, length);
                         for (slice) |*elem| elem.* = try deserialize(ptr_info.child, reader, allocator);

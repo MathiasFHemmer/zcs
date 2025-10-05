@@ -1,5 +1,6 @@
 const std = @import("std");
 const SparseSet = @import("sparse_set.zig").SparseSet;
+const SparseSetSerializer = @import("sparse_set_serializer.zig").SparseSetSerializer;
 const logger = std.log.scoped(.ECS);
 
 pub const Entity = u32;
@@ -46,14 +47,22 @@ pub fn ECS(
 
             for (info.fields) |field| {
                 const T = field.type;
-                const field_type = SparseSet(T);
                 fields = fields ++ [1]std.builtin.Type.StructField{
                     .{
                         .name = field.name,
-                        .type = field_type,
+                        .type = SparseSet(T),
                         .default_value_ptr = null,
                         .is_comptime = false,
-                        .alignment = @alignOf(field_type),
+                        .alignment = @alignOf(SparseSet(T)),
+                    },
+                };
+                fields = fields ++ [1]std.builtin.Type.StructField{
+                    .{
+                        .name = field.name ++ "Serializer",
+                        .type = SparseSetSerializer(SparseSet(T)),
+                        .default_value_ptr = null,
+                        .is_comptime = false,
+                        .alignment = @alignOf(SparseSetSerializer(SparseSet(T))),
                     },
                 };
             }
@@ -102,7 +111,7 @@ pub fn ECS(
             self.entitiesToRemove.deinit(self.allocator);
 
             inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
-                @field(self.componentStorage, field.name).deinit();
+                @field(self.componentStorage, field.name).deinit(self.allocator);
             }
         }
 
@@ -194,10 +203,11 @@ pub fn ECS(
             const info = @typeInfo(ComponentTypes).@"union";
             const fields = info.fields;
             inline for (fields) |field| {
-                var storage = @field(self.componentStorage, field.name);
-                if (storage.canSerialize(entity)) {
+                const storage = @field(self.componentStorage, field.name);
+                const sparseSetSerializer = SparseSetSerializer(@TypeOf(storage));
+                if (sparseSetSerializer.canSerialize(entity)) {
                     try writer.writeInt(u32, @intFromEnum(@field(ComponentTypes, field.name)), .little);
-                    try storage.serialize(entity, writer);
+                    try sparseSetSerializer.serialize(entity, writer);
                 }
             }
         }

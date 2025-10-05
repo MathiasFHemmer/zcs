@@ -8,7 +8,7 @@ pub const Serializer = struct {
         switch (info) {
             .@"struct" => |struct_info| {
                 if (@hasDecl(T, "serialize")) {
-                    try T.serialize(data, writer, Serializer);
+                    try T.serialize(data, writer);
                     return;
                 }
 

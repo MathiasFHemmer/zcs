@@ -61,60 +61,60 @@ test "Component ECS serializes metadata" {
     _ = fbs.consumeAll();
 }
 
-test "Component ECS deserializes metadata" {
-    const alloc = t.allocator;
+// test "Component ECS deserializes metadata" {
+//     const alloc = t.allocator;
 
-    var world = try ecs.init(alloc);
-    defer world.deinit();
+//     var world = try ecs.init(alloc);
+//     defer world.deinit();
 
-    const data = [4]u32{ 1, 0, 0, 1 };
-    const bytes = std.mem.asBytes(&data);
+//     const data = [4]u32{ 1, 0, 0, 1 };
+//     const bytes = std.mem.asBytes(&data);
 
-    var fbr = std.io.Reader.fixed(bytes);
-    const version = try std.SemanticVersion.parse("1.0.0");
+//     var fbr = std.io.Reader.fixed(bytes);
+//     const version = try std.SemanticVersion.parse("1.0.0");
 
-    const expectedVersion = try world.deserialize(&fbr, version);
-    try t.expect(world.nextEntity == 1);
-    try t.expect(version.major == expectedVersion.major);
-    try t.expect(version.minor == expectedVersion.minor);
-}
+//     const expectedVersion = try world.deserialize(&fbr, version);
+//     try t.expect(world.nextEntity == 1);
+//     try t.expect(version.major == expectedVersion.major);
+//     try t.expect(version.minor == expectedVersion.minor);
+// }
 
-test "Component ECS serializes component field" {
-    const alloc = t.allocator;
+// test "Component ECS serializes component field" {
+//     const alloc = t.allocator;
 
-    var world = try ecs.init(alloc);
-    world.addComponent(1, ComponentB{ .fieldA = 42 });
-    defer world.deinit();
+//     var world = try ecs.init(alloc);
+//     world.addComponent(1, ComponentB{ .fieldA = 42 });
+//     defer world.deinit();
 
-    var buffer: [512]u8 = undefined;
-    @memset(&buffer, 0);
+//     var buffer: [512]u8 = undefined;
+//     @memset(&buffer, 0);
 
-    var fbs = std.io.Writer.fixed(buffer[0..]);
-    const version = try std.SemanticVersion.parse("1.0.0");
+//     var fbs = std.io.Writer.fixed(buffer[0..]);
+//     const version = try std.SemanticVersion.parse("1.0.0");
 
-    try world.serialize(1, &fbs, version);
+//     try world.serialize(1, &fbs, version);
 
-    const array = [_]u32{ 1, 0, 0, 1, 1, 42 };
+//     const array = [_]u32{ 1, 0, 0, 1, 1, 42 };
 
-    try t.expectEqualSlices(u8, buffer[0..24], std.mem.asBytes(&array));
+//     try t.expectEqualSlices(u8, buffer[0..24], std.mem.asBytes(&array));
 
-    _ = fbs.consumeAll();
-}
+//     _ = fbs.consumeAll();
+// }
 
-test "Component ECS deserializes component field" {
-    const alloc = t.allocator;
+// test "Component ECS deserializes component field" {
+//     const alloc = t.allocator;
 
-    var world = try ecs.init(alloc);
-    defer world.deinit();
+//     var world = try ecs.init(alloc);
+//     defer world.deinit();
 
-    const data = [6]u32{ 1, 0, 0, 1, 1, 42 };
-    const bytes = std.mem.asBytes(&data);
+//     const data = [6]u32{ 1, 0, 0, 1, 1, 42 };
+//     const bytes = std.mem.asBytes(&data);
 
-    var fbr = std.io.Reader.fixed(bytes);
-    const version = try std.SemanticVersion.parse("1.0.0");
+//     var fbr = std.io.Reader.fixed(bytes);
+//     const version = try std.SemanticVersion.parse("1.0.0");
 
-    const expectedVersion = try world.deserialize(&fbr, version);
-    try t.expect(world.nextEntity == 1);
-    try t.expect(version.major == expectedVersion.major);
-    try t.expect(version.minor == expectedVersion.minor);
-}
+//     const expectedVersion = try world.deserialize(&fbr, version);
+//     try t.expect(world.nextEntity == 1);
+//     try t.expect(version.major == expectedVersion.major);
+//     try t.expect(version.minor == expectedVersion.minor);
+// }

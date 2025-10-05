@@ -29,6 +29,16 @@ pub fn SparseSet(comptime T: type) type {
             self.* = undefined;
         }
 
+        pub inline fn length(self: *Self) usize {
+            return self.dense.items.len;
+        }
+
+        pub fn ensureCapacity(self: *Self, allocator: Allocator, capacity: u32) !void {
+            try self.dense.ensureTotalCapacity(allocator, capacity);
+            try self.entities.ensureTotalCapacity(allocator, capacity);
+            try self.sparse.ensureTotalCapacity(allocator, capacity);
+        }
+
         pub fn add(self: *Self, allocator: Allocator, entity: Entity, data: T) !void {
             logger.debug("Adding data {any} to SparseSet on entity {any}", .{ entity, T });
             const index: u32 = @intCast(self.dense.items.len);
