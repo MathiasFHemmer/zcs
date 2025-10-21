@@ -1,6 +1,9 @@
 const std = @import("std");
 const Writer = std.io.Writer;
 
+/// A generic serializer that can serialize various data types including structs, arrays, enums, and primitive types.
+/// It uses Zig's compile-time reflection capabilities to inspect the structure of the data type and serialize its fields accordingly.
+/// Prioritizes custom `serialize` implementations on structs if available.
 pub const Serializer = struct {
     pub fn serialize(comptime T: type, data: *const T, writer: *Writer) !void {
         const info = @typeInfo(T);

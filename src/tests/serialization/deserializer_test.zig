@@ -1,23 +1,10 @@
 const std = @import("std");
 const math = std.math;
 const t = std.testing;
-const SparseSet = @import("../sparse_set.zig").SparseSet;
-const Serializer = @import("serializer.zig").Serializer;
-const Deserializer = @import("deserializer.zig").Deserializer;
-
-const BufferReader = struct {
-    data: []const u8,
-    pos: usize,
-
-    pub fn readBytes(self: *BufferReader, len: usize) ![]const u8 {
-        if (self.pos + len > self.data.len) {
-            return error.OutOfBounds;
-        }
-        const slice = self.data[self.pos .. self.pos + len];
-        self.pos += len;
-        return slice;
-    }
-};
+const SparseSet = @import("../../sparse_set.zig").SparseSet;
+const Helper = @import("helper.zig");
+const Serializer = @import("../serialization/serializer.zig").Serializer;
+const Deserializer = @import("../serialization/deserializer.zig").Deserializer;
 
 test "Deserializing primitive type" {
     const original_data: u32 = 1;
@@ -35,60 +22,60 @@ test "Deserializing primitive type" {
     try t.expectEqual(original_data, deserialized_data);
 }
 
-// test "Deserializing shallow struct type" {
-//     const original_data = ShallowStruct{
-//         .u8 = math.maxInt(u8),
-//         .u16 = math.maxInt(u16),
-//         .u32 = math.maxInt(u32),
-//         .u64 = math.maxInt(u64),
-//         .u128 = math.maxInt(u128),
-//         .i8 = math.minInt(i8),
-//         .i16 = math.minInt(i16),
-//         .i32 = math.minInt(i32),
-//         .i64 = math.minInt(i64),
-//         .i128 = math.minInt(i128),
-//         .f16 = math.floatMax(f16),
-//         .f32 = math.floatMax(f32),
-//         .f64 = math.floatMax(f64),
-//         .f128 = math.floatMax(f128),
-//         .bool = true,
-//         .isize = math.minInt(isize),
-//         .usize = math.maxInt(usize),
-//     };
+test "Deserializing shallow struct type" {
+    const original_data = Helper.ShallowStruct{
+        .u8 = math.maxInt(u8),
+        .u16 = math.maxInt(u16),
+        .u32 = math.maxInt(u32),
+        .u64 = math.maxInt(u64),
+        .u128 = math.maxInt(u128),
+        .i8 = math.minInt(i8),
+        .i16 = math.minInt(i16),
+        .i32 = math.minInt(i32),
+        .i64 = math.minInt(i64),
+        .i128 = math.minInt(i128),
+        .f16 = math.floatMax(f16),
+        .f32 = math.floatMax(f32),
+        .f64 = math.floatMax(f64),
+        .f128 = math.floatMax(f128),
+        .bool = true,
+        .isize = math.minInt(isize),
+        .usize = math.maxInt(usize),
+    };
 
-//     // Serialize
-//     var buffer: [1024]u8 = undefined;
-//     var fbs = std.io.fixedBufferStream(&buffer);
-//     const writer = fbs.writer();
+    // Serialize
+    var buffer: [1024]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buffer);
+    const writer = fbs.writer();
 
-//     try Serializer.serialize(ShallowStruct, &original_data, writer);
+    try Serializer.serialize(Helper.ShallowStruct, &original_data, writer);
 
-//     // Reset stream for reading
-//     fbs.pos = 0;
-//     const reader = fbs.reader();
+    // Reset stream for reading
+    fbs.pos = 0;
+    const reader = fbs.reader();
 
-//     // Deserialize
-//     const deserialized_data = try Deserializer.deserialize(ShallowStruct, reader, null);
+    // Deserialize
+    const deserialized_data = try Deserializer.deserialize(Helper.ShallowStruct, reader, null);
 
-//     // Verify all fields match
-//     try t.expectEqual(original_data.u8, deserialized_data.u8);
-//     try t.expectEqual(original_data.u16, deserialized_data.u16);
-//     try t.expectEqual(original_data.u32, deserialized_data.u32);
-//     try t.expectEqual(original_data.u64, deserialized_data.u64);
-//     try t.expectEqual(original_data.u128, deserialized_data.u128);
-//     try t.expectEqual(original_data.i8, deserialized_data.i8);
-//     try t.expectEqual(original_data.i16, deserialized_data.i16);
-//     try t.expectEqual(original_data.i32, deserialized_data.i32);
-//     try t.expectEqual(original_data.i64, deserialized_data.i64);
-//     try t.expectEqual(original_data.i128, deserialized_data.i128);
-//     try t.expectEqual(original_data.f16, deserialized_data.f16);
-//     try t.expectEqual(original_data.f32, deserialized_data.f32);
-//     try t.expectEqual(original_data.f64, deserialized_data.f64);
-//     try t.expectEqual(original_data.f128, deserialized_data.f128);
-//     try t.expectEqual(original_data.bool, deserialized_data.bool);
-//     try t.expectEqual(original_data.isize, deserialized_data.isize);
-//     try t.expectEqual(original_data.usize, deserialized_data.usize);
-// }
+    // Verify all fields match
+    try t.expectEqual(original_data.u8, deserialized_data.u8);
+    try t.expectEqual(original_data.u16, deserialized_data.u16);
+    try t.expectEqual(original_data.u32, deserialized_data.u32);
+    try t.expectEqual(original_data.u64, deserialized_data.u64);
+    try t.expectEqual(original_data.u128, deserialized_data.u128);
+    try t.expectEqual(original_data.i8, deserialized_data.i8);
+    try t.expectEqual(original_data.i16, deserialized_data.i16);
+    try t.expectEqual(original_data.i32, deserialized_data.i32);
+    try t.expectEqual(original_data.i64, deserialized_data.i64);
+    try t.expectEqual(original_data.i128, deserialized_data.i128);
+    try t.expectEqual(original_data.f16, deserialized_data.f16);
+    try t.expectEqual(original_data.f32, deserialized_data.f32);
+    try t.expectEqual(original_data.f64, deserialized_data.f64);
+    try t.expectEqual(original_data.f128, deserialized_data.f128);
+    try t.expectEqual(original_data.bool, deserialized_data.bool);
+    try t.expectEqual(original_data.isize, deserialized_data.isize);
+    try t.expectEqual(original_data.usize, deserialized_data.usize);
+}
 
 // test "Deserializing enum type" {
 //     const original_data: EnumComponentTagged = .C;

@@ -3,16 +3,19 @@ const Allocator = std.mem.Allocator;
 const Entity = @import("ecs.zig").Entity;
 const logger = std.log.scoped(.SparseSet);
 
+/// A Sparse Set is a data structure that provides efficient storage and retrieval of components associated with entities.
+/// It uses a combination of a dense array and a sparse hashmap to achieve fast access times while minimizing memory usage.
+/// The dense array stores the actual component data, while the sparse array maps entity IDs to indices in the dense array.
 pub fn SparseSet(comptime T: type) type {
     return struct {
         const Self = @This();
         const tag = @tagName(T);
 
-        // Contains the Data itself
+        /// Contains the Data itself
         dense: std.array_list.Aligned(T, null),
-        // Contains all entities that has this component
+        /// Contains all entities that has this component
         entities: std.array_list.Aligned(Entity, null),
-        // Maps the Entity to the index of the Dense array
+        /// Maps the Entity to the index of the Dense array
         sparse: std.hash_map.AutoHashMapUnmanaged(Entity, u32),
 
         pub const empty = Self{
@@ -21,6 +24,7 @@ pub fn SparseSet(comptime T: type) type {
             .sparse = .empty,
         };
 
+        /// Deinitializes the SparseSet, freeing all allocated memory.
         pub fn deinit(self: *Self, allocator: Allocator) void {
             logger.debug("Deinitializing SparseSet({any})", .{T});
             self.dense.deinit(allocator);
@@ -29,26 +33,32 @@ pub fn SparseSet(comptime T: type) type {
             self.* = undefined;
         }
 
-        pub inline fn length(self: *Self) usize {
+        /// Returns the number of components currently stored in the SparseSet.
+        pub inline fn length(self: *const Self) usize {
             return self.dense.items.len;
         }
 
+        /// Ensures that the SparseSet has enough capacity to store at least `capacity` components.
+        /// This may invalidate pointer references to components.
         pub fn ensureCapacity(self: *Self, allocator: Allocator, capacity: u32) !void {
             try self.dense.ensureTotalCapacity(allocator, capacity);
             try self.entities.ensureTotalCapacity(allocator, capacity);
             try self.sparse.ensureTotalCapacity(allocator, capacity);
         }
 
+        /// Adds a component for the specified entity with the given data.
+        /// If the entity already has a component of this type, it will be replaced.
+        /// This may invalidate pointer references to components.
         pub fn add(self: *Self, allocator: Allocator, entity: Entity, data: T) !void {
-            logger.debug("Adding data {any} to SparseSet on entity {any}", .{ entity, T });
+            std.log.debug("Adding data {any} to SparseSet on entity {any}", .{ entity, T });
             const index: u32 = @intCast(self.dense.items.len);
             try self.dense.append(allocator, data);
             try self.entities.append(allocator, entity);
             try self.sparse.put(allocator, entity, index);
         }
 
-        // Creates an entry for the entity, but defaults the T to a zero initialized value.
-        // If the component needs initialization, it should be done right after calling this method, before its usage.
+        /// Creates an entry for the entity, but defaults the T to a zero initialized value.
+        /// If the component needs initialization, it should be done right after calling this method, before its usage.
         pub fn create(self: *Self, allocator: Allocator, entity: Entity) !*T {
             logger.debug("Creating entry on SparseSet for entity {any}", .{entity});
             const index: u32 = @intCast(self.dense.items.len);
@@ -58,8 +68,8 @@ pub fn SparseSet(comptime T: type) type {
             return item;
         }
 
-        // Gets a pointer to an Entity Component
-        // Looks for the entity in the Sparse set first. If it exists, extract the index from the Sparse set and uses it as a key in the Dense set
+        /// Gets a pointer to an Entity Component
+        /// Looks for the entity in the Sparse set first. If it exists, extract the index from the Sparse set and uses it as a key in the Dense set
         pub fn get(self: *Self, entity: Entity) ?*T {
             logger.debug("Looking for component {any} of entity {any}", .{ T, entity });
             if (self.sparse.get(entity)) |index| {
@@ -69,14 +79,15 @@ pub fn SparseSet(comptime T: type) type {
             return null;
         }
 
-        // Gets a pointer to an Entity Component
-        // May raise illegal behavior as its not guaranteed that the entity has said component.
+        /// Gets a pointer to an Entity Component
+        /// May raise illegal behavior as its not guaranteed that the entity has said component.
         pub fn getUnsafe(self: *Self, entity: Entity) *T {
             std.debug.assert(true);
             const index = self.sparse.get(entity) orelse std.math.maxInt(u32);
             return &self.dense.items[index];
         }
 
+        /// Gets the Entity at the given index in the dense array.
         pub fn getEntity(self: *Self, index: usize) Entity {
             if (index < self.entities.items.len) {
                 return self.entities.items[index];
@@ -84,14 +95,20 @@ pub fn SparseSet(comptime T: type) type {
             return 0;
         }
 
+        /// Gets a slice of all components in the dense array.
         pub fn getDenseSlice(self: *Self) []T {
             return self.dense.items;
         }
 
+        /// Gets a slice of all entities in the entities array.
         pub fn getEntitiesSlice(self: *Self) []Entity {
             return self.entities.items;
         }
 
+        /// Removes the component associated with the specified entity.
+        /// If the entity does not have a component of this type, this function does nothing.
+        /// This may invalidate pointer references to components.
+        /// Utilizes the "swap and pop" technique to avoid memory reallocation.
         pub fn remove(self: *Self, entity: Entity) void {
             logger.debug("Removing component {any} from Entity({d})", .{ T, entity });
             const index = self.sparse.get(entity) orelse return;

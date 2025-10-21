@@ -1,38 +1,13 @@
 const std = @import("std");
-const Entity = @import("ecs.zig").Entity;
+const Entity = @import("../../ecs.zig").Entity;
 const t = std.testing;
-const SparseSet = @import("sparse_set.zig").SparseSet;
-const Serializer = @import("serializers/serializer.zig").Serializer;
-const SparseSetSerializer = @import("sparse_set_serializer.zig").SparseSetSerializer;
+const SparseSet = @import("../../sparse_set.zig").SparseSet;
+const Serializer = @import("../../serialization/serializer.zig").Serializer;
+const SparseSetSerializer = @import("../../serialization/sparse_set_serializer.zig").SparseSetSerializer;
 
-const BufferReader = struct {
-    data: []const u8,
-    pos: usize,
-
-    pub fn readBytes(self: *BufferReader, len: usize) ![]const u8 {
-        if (self.pos + len > self.data.len) {
-            return error.OutOfBounds;
-        }
-        const slice = self.data[self.pos .. self.pos + len];
-        self.pos += len;
-        return slice;
-    }
-};
-
-const ComponentA = struct { fieldA: u32 };
-
-const ComponentB = struct {
-    fieldA: u32,
-    pub fn serialize(self: *const ComponentB, writer: *std.io.Writer) !void {
-        try writer.writeInt(u32, self.fieldA, .little);
-    }
-    pub fn deserialize(reader: *std.io.Reader, allocator: std.mem.Allocator) !ComponentB {
-        _ = allocator;
-        return ComponentB{
-            .fieldA = try reader.takeInt(u32, .little),
-        };
-    }
-};
+const Helper = @import("helper.zig");
+const ComponentA = Helper.ComponentA;
+const ComponentB = Helper.ComponentB;
 
 test "'serializeSingle' should use component's 'serialize' implementation" {
     const alloc = t.allocator;
@@ -116,10 +91,7 @@ test "'serialize' should use component's 'serialize' implementation" {
     var fbs = std.io.Writer.fixed(buffer[0..]);
     try serializer.serialize(&set, &fbs);
 
-    var reader = BufferReader{
-        .data = &buffer,
-        .pos = 0,
-    };
+    var reader = Helper.BufferReader.init(&buffer);
 
     try t.expectEqual(3, std.mem.bytesToValue(u64, try reader.readBytes(@sizeOf(u64))));
     try t.expectEqual(1, std.mem.bytesToValue(Entity, try reader.readBytes(@sizeOf(Entity))));
@@ -143,10 +115,7 @@ test "'serialize' should use default serializer implementation when no 'serializ
     var fbs = std.io.Writer.fixed(buffer[0..]);
     try serializer.serialize(&set, &fbs);
 
-    var reader = BufferReader{
-        .data = &buffer,
-        .pos = 0,
-    };
+    var reader = Helper.BufferReader.init(&buffer);
 
     try t.expectEqual(3, std.mem.bytesToValue(u64, try reader.readBytes(@sizeOf(u64))));
     try t.expectEqual(1, std.mem.bytesToValue(Entity, try reader.readBytes(@sizeOf(Entity))));
@@ -156,7 +125,6 @@ test "'serialize' should use default serializer implementation when no 'serializ
     try t.expectEqual(3, std.mem.bytesToValue(Entity, try reader.readBytes(@sizeOf(Entity))));
     try t.expectEqual(69, std.mem.bytesToValue(u32, try reader.readBytes(@sizeOf(u32))));
 }
-
 test "deserialize' should use component's 'deserialize' implementation" {
     const alloc = t.allocator;
     var set = SparseSet(ComponentB).empty;
@@ -191,7 +159,6 @@ test "deserialize' should use component's 'deserialize' implementation" {
     try t.expectEqual(ComponentB{ .fieldA = 43 }, setToDeserialize.dense.items[1]);
     try t.expectEqual(ComponentB{ .fieldA = 44 }, setToDeserialize.dense.items[2]);
 }
-
 test "deserialize' should use default deserializer implementation when no 'deserialize' is implemented on component" {
     const alloc = t.allocator;
     var set = SparseSet(ComponentA).empty;

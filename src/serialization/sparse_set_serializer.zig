@@ -1,13 +1,17 @@
 const std = @import("std");
-const Entity = @import("ecs.zig").Entity;
-const Serializer = @import("serializers/serializer.zig").Serializer;
-const Deserializer = @import("serializers/deserializer.zig").Deserializer;
-const SparseSet = @import("sparse_set.zig").SparseSet;
+const Entity = @import("../ecs.zig").Entity;
+const Serializer = @import("serializer.zig").Serializer;
+const Deserializer = @import("deserializer.zig").Deserializer;
+const SparseSet = @import("../sparse_set.zig").SparseSet;
 
+/// A serializer/deserializer for SparseSet data structures.
+/// Uses the generic Serializer and Deserializer for the component type.
 pub fn SparseSetSerializer(comptime SetType: type) type {
     return struct {
-        pub fn serialize(sparseSet: *SparseSet(SetType), writer: *std.io.Writer) !void {
+        pub fn serialize(sparseSet: *const SparseSet(SetType), writer: *std.io.Writer) !void {
             const len = sparseSet.length();
+            if (len == 0) return;
+
             try writer.writeInt(u64, len, .little);
             var iterator = sparseSet.sparse.iterator();
             while (iterator.next()) |item| {

@@ -1,6 +1,9 @@
 const std = @import("std");
 const Reader = std.io.Reader;
 
+/// A generic deserializer that can deserialize various data types including structs, arrays, enums, and primitive types.
+/// It uses Zig's compile-time reflection capabilities to inspect the structure of the data type and deserialize its fields accordingly.
+/// Prioritizes custom `deserialize` implementations on structs if available.
 pub const Deserializer = struct {
     pub fn deserialize(comptime T: type, reader: *Reader, allocator: std.mem.Allocator) !T {
         const info = @typeInfo(T);

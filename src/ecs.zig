@@ -1,6 +1,6 @@
 const std = @import("std");
 const SparseSet = @import("sparse_set.zig").SparseSet;
-const SparseSetSerializer = @import("sparse_set_serializer.zig").SparseSetSerializer;
+const SparseSetSerializer = @import("./serialization/sparse_set_serializer.zig").SparseSetSerializer;
 const logger = std.log.scoped(.ECS);
 
 pub const Entity = u32;
@@ -59,7 +59,7 @@ pub fn ECS(
                 fields = fields ++ [1]std.builtin.Type.StructField{
                     .{
                         .name = field.name ++ "Serializer",
-                        .type = SparseSetSerializer(SparseSet(T)),
+                        .type = SparseSetSerializer(T),
                         .default_value_ptr = null,
                         .is_comptime = false,
                         .alignment = @alignOf(SparseSetSerializer(SparseSet(T))),
@@ -181,67 +181,56 @@ pub fn ECS(
             self.entitiesToRemove.clearRetainingCapacity();
         }
 
-        //
-        // Entity Serialization. Utilizes a 4x32 bits of header data for version and entity id
-        // The next 32 bits specify a component id. If the component is present on the ECS fields table, it will try to deserialize the component
-        // TODO: Add version resolution for each component
-        //
-        // 3x32 [Major, Minor, Patch] -> Version
-        // 1x32 [Id] -> Entity Id
-        // <repeat>
-        // 1x32 [Component Tag] -> Component Tag Id
+        // ECS State Serialization. Writes down all component data to disk.
+        // <HEADER>
+        // 3xu32 [Major, Minor, Patch] -> Version of the serialized data
+        // <REPEAT>
+        // 1xu32 [Component Tag] -> Component Tag Id
         // ... The following bytes should be filled by the component deserialization logic. This lets components have an unknown size fo bytes to write on the serialization step
-        // But requires careful version implementation, as different memory layouts will break the entire serialization loop
         // <end>
-        pub fn serialize(self: *Self, entity: Entity, writer: *std.io.Writer, version: std.SemanticVersion) !void {
+        pub fn serialize(self: *Self, writer: *std.io.Writer, version: std.SemanticVersion) !void {
             try writer.writeInt(u32, @intCast(version.major), .little);
             try writer.writeInt(u32, @intCast(version.minor), .little);
             try writer.writeInt(u32, @intCast(version.patch), .little);
 
-            try writer.writeInt(Entity, entity, .little);
+            //try writer.writeInt(Entity, entity, .little);
 
             const info = @typeInfo(ComponentTypes).@"union";
             const fields = info.fields;
             inline for (fields) |field| {
-                const storage = @field(self.componentStorage, field.name);
-                const sparseSetSerializer = SparseSetSerializer(@TypeOf(storage));
-                if (sparseSetSerializer.canSerialize(entity)) {
-                    try writer.writeInt(u32, @intFromEnum(@field(ComponentTypes, field.name)), .little);
-                    try sparseSetSerializer.serialize(entity, writer);
-                }
+                const sparseSet = @field(self.componentStorage, field.name);
+                const serializer = @field(self.componentStorage, field.name ++ "Serializer");
+                try writer.writeInt(u32, @intFromEnum(@field(ComponentTypes, field.name)), .little);
+                try @TypeOf(serializer).serialize(&sparseSet, writer);
             }
         }
 
-        //TODO: Implement versioning on components
+        // TODO: Implement versioning on components
         // ------------ IGNORE ------------
-        // pub fn deserialize(self: *Self, reader: *std.io.Reader, version: std.SemanticVersion) !std.SemanticVersion {
-        //     _ = version;
-        //     const major = try reader.takeInt(u32, .little);
-        //     const minor = try reader.takeInt(u32, .little);
-        //     const patch = try reader.takeInt(u32, .little);
-        //     const saveVersion = std.SemanticVersion{ .major = major, .minor = minor, .patch = patch };
+        pub fn deserialize(self: *Self, reader: *std.io.Reader, version: std.SemanticVersion) !std.SemanticVersion {
+            _ = version;
+            const major = try reader.takeInt(u32, .little);
+            const minor = try reader.takeInt(u32, .little);
+            const patch = try reader.takeInt(u32, .little);
+            const saveVersion = std.SemanticVersion{ .major = major, .minor = minor, .patch = patch };
 
-        //     const id = try reader.takeInt(Entity, .little);
+            while (true) {
+                _ = reader.peek(1) catch break;
+                const componentId = try reader.takeInt(u32, .little);
 
-        //     self.nextEntity = id;
+                inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
+                    if (@intFromEnum(@field(ComponentTypes, field.name)) == componentId) {
+                        var sparseSet = @field(self.componentStorage, field.name);
+                        const serializer = @field(self.componentStorage, field.name ++ "Serializer");
 
-        //     //TODO: Loop over the rest of the data, gathering 32 bytes first for the component id, and if it matched the id on the configured table, try to call the deserialize on it to generate a new
-        //     // component
-        //     const info = @typeInfo(ComponentTypes).@"union";
-        //     const fields = info.fields;
+                        _ = try @TypeOf(serializer).deserialize(self.allocator, &sparseSet, reader);
+                        break;
+                    }
+                }
+            }
 
-        //     const tag = try reader.takeInt(u32, .little);
-        //     const entity = self.createEntity();
-        //     inline for (fields) |field| {
-        //         if (@intFromEnum(@field(ComponentTypes, field.name)) == tag) {
-        //             var storage = @field(self.componentStorage, field.name);
-        //             try storage.deserialize(entity, reader);
-        //         }
-        //     }
-
-        //     return saveVersion;
-        // }
-        // ------------
+            return saveVersion;
+        }
 
         pub fn query(self: *Self, comptime Components: type) Query(Components) {
             return Query(Components).init(self);
