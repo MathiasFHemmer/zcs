@@ -74,6 +74,7 @@ test "Component ECS serializes metadata" {
 
 test "Component ECS deserializes metadata" {
     const alloc = t.allocator;
+    const alloc2 = t.allocator;
 
     var world = try ecs.init(alloc);
     try world.componentStorage.componentA.add(alloc, 1, .{ .fieldA = 42 });
@@ -90,12 +91,15 @@ test "Component ECS deserializes metadata" {
 
     var reader = std.io.Reader.fixed(buffer[0..]);
 
-    var worldToDeserialize = try ecs.init(alloc);
+    var worldToDeserialize = try ecs.init(alloc2);
     defer worldToDeserialize.deinit();
 
     const versionDeserialized = try worldToDeserialize.deserialize(&reader, version);
 
     try t.expectEqual(1, versionDeserialized.major);
+    try t.expectEqual(1, worldToDeserialize.componentStorage.componentA.getEntity(0));
+    try t.expectEqual(42, worldToDeserialize.componentStorage.componentA.getUnsafe(1).fieldA);
+    try t.expectEqual(15, worldToDeserialize.componentStorage.componentB.getUnsafe(1).fieldA);
 
     _ = writer.consumeAll();
 }

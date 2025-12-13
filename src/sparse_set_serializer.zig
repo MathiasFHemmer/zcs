@@ -1,8 +1,8 @@
 const std = @import("std");
-const Entity = @import("../ecs.zig").Entity;
-const Serializer = @import("serializer.zig").Serializer;
-const Deserializer = @import("deserializer.zig").Deserializer;
-const SparseSet = @import("../sparse_set.zig").SparseSet;
+const Entity = @import("ecs.zig").Entity;
+const Serializer = @import("zerializer").Serializer;
+const Deserializer = @import("zerializer").Deserializer;
+const SparseSet = @import("sparse_set.zig").SparseSet;
 
 /// A serializer/deserializer for SparseSet data structures.
 /// Uses the generic Serializer and Deserializer for the component type.
@@ -10,14 +10,14 @@ pub fn SparseSetSerializer(comptime SetType: type) type {
     return struct {
         pub fn serialize(sparseSet: *const SparseSet(SetType), writer: *std.io.Writer) !void {
             const len = sparseSet.length();
-            if (len == 0) return;
-
             try writer.writeInt(u64, len, .little);
+
+            if (len == 0) return;
             var iterator = sparseSet.sparse.iterator();
             while (iterator.next()) |item| {
                 try writer.writeInt(Entity, item.key_ptr.*, .little);
                 const ent = &sparseSet.dense.items[item.value_ptr.*];
-                try Serializer.serialize(SetType, ent, writer);
+                try Serializer.serialize(SetType, ent.*, writer);
             }
         }
 
@@ -33,7 +33,7 @@ pub fn SparseSetSerializer(comptime SetType: type) type {
             try sparseSet.ensureCapacity(allocator, @intCast(len));
             for (0..len) |_| {
                 const entity = try reader.takeInt(Entity, .little);
-                const item = try sparseSet.create(allocator, entity);
+                const item = try sparseSet.createAssumeCapacity(entity);
                 item.* = try Deserializer.deserialize(SetType, reader, allocator);
             }
         }

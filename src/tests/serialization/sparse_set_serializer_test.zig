@@ -2,8 +2,8 @@ const std = @import("std");
 const Entity = @import("../../ecs.zig").Entity;
 const t = std.testing;
 const SparseSet = @import("../../sparse_set.zig").SparseSet;
-const Serializer = @import("../../serialization/serializer.zig").Serializer;
-const SparseSetSerializer = @import("../../serialization/sparse_set_serializer.zig").SparseSetSerializer;
+const Serializer = @import("zerializer").Serializer;
+const SparseSetSerializer = @import("../../sparse_set_serializer.zig").SparseSetSerializer;
 
 const Helper = @import("helper.zig");
 const ComponentA = Helper.ComponentA;

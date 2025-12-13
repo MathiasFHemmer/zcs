@@ -1,20 +1,22 @@
 const std = @import("std");
 const SparseSet = @import("sparse_set.zig").SparseSet;
-const SparseSetSerializer = @import("./serialization/sparse_set_serializer.zig").SparseSetSerializer;
+const SparseSetSerializer = @import("sparse_set_serializer.zig").SparseSetSerializer;
 const logger = std.log.scoped(.ECS);
 
 pub const Entity = u32;
 
+pub const ECSOptions = struct {
+    State: ?type = null,
+    AssetManager: ?type = null,
+};
+
 pub fn ECS(
     comptime ComponentTypes: type,
-    comptime Options: struct {
-        State: ?type = null,
-        AssetManager: ?type = null,
-    },
+    comptime Options: ECSOptions,
 ) type {
     switch (@typeInfo(ComponentTypes)) {
         .@"union" => |value| std.debug.assert(value.tag_type != null),
-        else => @compileError("ComponentTypes must be a struct type"),
+        else => @compileError("ComponentTypes must be a union type"),
     }
 
     const StateType = if (Options.State) |s| blk: {
@@ -87,8 +89,8 @@ pub fn ECS(
                 .assetManager = undefined,
             };
 
-            if (Options.State) |t| self.state = t.init();
-            if (Options.AssetManager) |t| self.assetManager = t.init();
+            if (Options.State) |t| self.state = t.init(allocator);
+            if (Options.AssetManager) |t| self.assetManager = try t.init(allocator);
 
             inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
                 const T = field.type;
@@ -99,15 +101,16 @@ pub fn ECS(
             return self;
         }
 
-        pub fn printRegistry() void {
+        pub fn printRegistry(self: *Self) void {
+            _ = self;
             inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
                 logger.debug("Component [{s}] Type [{s}] active", .{ field.name, @typeName(field.type) });
             }
         }
 
         pub fn deinit(self: *Self) void {
-            if (Options.State) |_| self.state = Options.State.deinit();
-            if (Options.AssetManager) |_| self.assetManager = Options.AssetManager.deinit();
+            if (Options.State) |_| self.state.deinit();
+            if (Options.AssetManager) |_| self.assetManager.deinit();
             self.entitiesToRemove.deinit(self.allocator);
 
             inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
@@ -136,7 +139,7 @@ pub fn ECS(
         }
 
         pub fn getComponent(self: *Self, entity: Entity, comptime T: type) ?*T {
-            inline for (@typeInfo(ComponentTypes).@"struct".fields) |field| {
+            inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
                 if (field.type == T) {
                     return @field(self.componentStorage, field.name).get(entity);
                 }
@@ -145,7 +148,7 @@ pub fn ECS(
         }
 
         pub fn getComponentEntity(self: *Self, index: usize, comptime T: type) Entity {
-            inline for (@typeInfo(ComponentTypes).@"struct".fields) |field| {
+            inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
                 if (field.type == T) {
                     return @field(self.componentStorage, field.name).getEntity(index);
                 }
@@ -154,7 +157,7 @@ pub fn ECS(
         }
 
         pub fn getComponentSet(self: *Self, comptime T: type) *SparseSet(T) {
-            inline for (@typeInfo(ComponentTypes).@"struct".fields) |field| {
+            inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
                 if (field.type == T) {
                     return &@field(self.componentStorage, field.name);
                 }
@@ -169,7 +172,7 @@ pub fn ECS(
         // This removes an entity and all its associated components.
         // Do not use this inside a query!
         pub fn removeEntity(self: *Self, entity: Entity) void {
-            inline for (@typeInfo(ComponentTypes).@"struct".fields) |field| {
+            inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
                 @field(self.componentStorage, field.name).remove(entity);
             }
         }
@@ -198,10 +201,10 @@ pub fn ECS(
             const info = @typeInfo(ComponentTypes).@"union";
             const fields = info.fields;
             inline for (fields) |field| {
-                const sparseSet = @field(self.componentStorage, field.name);
+                const sparseSet = &@field(self.componentStorage, field.name);
                 const serializer = @field(self.componentStorage, field.name ++ "Serializer");
                 try writer.writeInt(u32, @intFromEnum(@field(ComponentTypes, field.name)), .little);
-                try @TypeOf(serializer).serialize(&sparseSet, writer);
+                try @TypeOf(serializer).serialize(sparseSet, writer);
             }
         }
 
@@ -209,6 +212,7 @@ pub fn ECS(
         // ------------ IGNORE ------------
         pub fn deserialize(self: *Self, reader: *std.io.Reader, version: std.SemanticVersion) !std.SemanticVersion {
             _ = version;
+            logger.info("Deserializing version", .{});
             const major = try reader.takeInt(u32, .little);
             const minor = try reader.takeInt(u32, .little);
             const patch = try reader.takeInt(u32, .little);
@@ -220,12 +224,15 @@ pub fn ECS(
 
                 inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
                     if (@intFromEnum(@field(ComponentTypes, field.name)) == componentId) {
-                        var sparseSet = @field(self.componentStorage, field.name);
+                        logger.debug("Deserializing component ID({d}: {s})!", .{ componentId, field.name });
+                        const sparseSet = &@field(self.componentStorage, field.name);
                         const serializer = @field(self.componentStorage, field.name ++ "Serializer");
-
-                        _ = try @TypeOf(serializer).deserialize(self.allocator, &sparseSet, reader);
+                        _ = try @TypeOf(serializer).deserialize(self.allocator, sparseSet, reader);
                         break;
                     }
+                } else {
+                    // logger.err("Unexpected component ID({d})!", .{componentId});
+                    break;
                 }
             }
 

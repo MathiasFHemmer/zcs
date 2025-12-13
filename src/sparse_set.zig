@@ -60,11 +60,22 @@ pub fn SparseSet(comptime T: type) type {
         /// Creates an entry for the entity, but defaults the T to a zero initialized value.
         /// If the component needs initialization, it should be done right after calling this method, before its usage.
         pub fn create(self: *Self, allocator: Allocator, entity: Entity) !*T {
-            logger.debug("Creating entry on SparseSet for entity {any}", .{entity});
+            logger.debug("Creating entry on SparseSet({any}) for entity {any}", .{ T, entity });
             const index: u32 = @intCast(self.dense.items.len);
             const item = try self.dense.addOne(allocator);
             try self.entities.append(allocator, entity);
             try self.sparse.put(allocator, entity, index);
+            return item;
+        }
+
+        /// Creates an entry assuming there is enough memory.
+        /// If the component needs initialization, it should be done right after calling this method, before its usage.
+        pub fn createAssumeCapacity(self: *Self, entity: Entity) !*T {
+            logger.debug("Creating entry on SparseSet({any}) for entity {any}", .{ T, entity });
+            const index: u32 = @intCast(self.dense.items.len);
+            const item = self.dense.addOneAssumeCapacity();
+            self.entities.appendAssumeCapacity(entity);
+            self.sparse.putAssumeCapacity(entity, index);
             return item;
         }
 

@@ -4,11 +4,19 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const zerializer_dep = b.dependency("zerializer", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zerializer = zerializer_dep.module("zerializer");
+
     const mod = b.addModule("zecs", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
+
+    mod.addImport("zerializer", zerializer);
 
     const mod_tests = b.addTest(.{
         .root_module = mod,
