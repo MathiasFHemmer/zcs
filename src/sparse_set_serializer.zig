@@ -3,6 +3,7 @@ const Entity = @import("ecs.zig").Entity;
 const Serializer = @import("zerializer").Serializer;
 const Deserializer = @import("zerializer").Deserializer;
 const SparseSet = @import("sparse_set.zig").SparseSet;
+const logger = std.log.scoped(.SparseSetSerializer);
 
 /// A serializer/deserializer for SparseSet data structures.
 /// Uses the generic Serializer and Deserializer for the component type.

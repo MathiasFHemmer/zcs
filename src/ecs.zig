@@ -102,9 +102,12 @@ pub fn ECS(
         }
 
         pub fn printRegistry(self: *Self) void {
-            _ = self;
             inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
-                logger.debug("Component [{s}] Type [{s}] active", .{ field.name, @typeName(field.type) });
+                logger.debug("Component [{s}] Type [{s}] active. [{d}] Entries", .{
+                    field.name,
+                    @typeName(field.type),
+                    @field(self.componentStorage, field.name).dense.items.len,
+                });
             }
         }
 

@@ -26,7 +26,7 @@ pub fn SparseSet(comptime T: type) type {
 
         /// Deinitializes the SparseSet, freeing all allocated memory.
         pub fn deinit(self: *Self, allocator: Allocator) void {
-            logger.debug("Deinitializing SparseSet({any})", .{T});
+            logger.debug("Deinitializing SparseSet({any}). [{d}] Entries removed", .{ T, self.dense.items.len });
             self.dense.deinit(allocator);
             self.entities.deinit(allocator);
             self.sparse.deinit(allocator);
