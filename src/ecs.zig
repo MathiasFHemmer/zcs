@@ -192,6 +192,7 @@ pub fn ECS(
         // ... The following bytes should be filled by the component deserialization logic. This lets components have an unknown size fo bytes to write on the serialization step
         // <end>
         pub fn serialize(self: *Self, writer: *std.io.Writer, version: std.SemanticVersion) !void {
+            logger.debug("Serializing version", .{});
             try writer.writeInt(u32, @intCast(version.major), .little);
             try writer.writeInt(u32, @intCast(version.minor), .little);
             try writer.writeInt(u32, @intCast(version.patch), .little);
@@ -203,7 +204,9 @@ pub fn ECS(
             inline for (fields) |field| {
                 const sparseSet = &@field(self.componentStorage, field.name);
                 const serializer = @field(self.componentStorage, field.name ++ "Serializer");
-                try writer.writeInt(u32, @intFromEnum(@field(ComponentTypes, field.name)), .little);
+                const componentId = @intFromEnum(@field(ComponentTypes, field.name));
+                logger.debug("Serializing component ID({d}: {s})!", .{ componentId, field.name });
+                try writer.writeInt(u32, componentId, .little);
                 try @TypeOf(serializer).serialize(sparseSet, writer);
             }
         }
@@ -212,7 +215,7 @@ pub fn ECS(
         // ------------ IGNORE ------------
         pub fn deserialize(self: *Self, reader: *std.io.Reader, version: std.SemanticVersion) !std.SemanticVersion {
             _ = version;
-            logger.info("Deserializing version", .{});
+            logger.debug("Deserializing version", .{});
             const major = try reader.takeInt(u32, .little);
             const minor = try reader.takeInt(u32, .little);
             const patch = try reader.takeInt(u32, .little);

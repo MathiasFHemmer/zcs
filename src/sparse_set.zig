@@ -82,9 +82,9 @@ pub fn SparseSet(comptime T: type) type {
         /// Gets a pointer to an Entity Component
         /// Looks for the entity in the Sparse set first. If it exists, extract the index from the Sparse set and uses it as a key in the Dense set
         pub fn get(self: *Self, entity: Entity) ?*T {
-            logger.debug("Looking for component {any} of entity {any}", .{ T, entity });
+            //logger.debug("Looking for component {any} of entity {any}", .{ T, entity });
             if (self.sparse.get(entity)) |index| {
-                logger.debug("Entity {any} contains component at Dense({d})", .{ entity, index });
+                //logger.debug("Entity {any} contains component at Dense({d})", .{ entity, index });
                 return &self.dense.items[index];
             }
             return null;
