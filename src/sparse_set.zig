@@ -50,7 +50,7 @@ pub fn SparseSet(comptime T: type) type {
         /// If the entity already has a component of this type, it will be replaced.
         /// This may invalidate pointer references to components.
         pub fn add(self: *Self, allocator: Allocator, entity: Entity, data: T) !void {
-            std.log.debug("Adding data {any} to SparseSet on entity {any}", .{ entity, T });
+            std.log.debug("Entry [{d}]: Adding data {any}:{any}", .{ entity, T, data });
             const index: u32 = @intCast(self.dense.items.len);
             try self.dense.append(allocator, data);
             try self.entities.append(allocator, entity);

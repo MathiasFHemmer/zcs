@@ -103,11 +103,31 @@ pub fn ECS(
 
         pub fn printRegistry(self: *Self) void {
             inline for (@typeInfo(ComponentTypes).@"union".fields) |field| {
+                const sparseSet = &@field(self.componentStorage, field.name);
                 logger.debug("Component [{s}] Type [{s}] active. [{d}] Entries", .{
                     field.name,
                     @typeName(field.type),
-                    @field(self.componentStorage, field.name).dense.items.len,
+                    sparseSet.dense.items.len,
                 });
+
+                // Show dense array contents
+                logger.debug("Dense array:", .{});
+                for (sparseSet.dense.items, 0..) |item, i| {
+                    logger.debug("[{d}]: {any}", .{ i, item });
+                }
+
+                // Show entities array contents
+                logger.debug("Entities array:", .{});
+                for (sparseSet.entities.items, 0..) |entity, i| {
+                    logger.debug("[{d}]: {d}", .{ i, entity });
+                }
+
+                // Show sparse hashmap contents
+                logger.debug("Sparse map:", .{});
+                var it = sparseSet.sparse.iterator();
+                while (it.next()) |entry| {
+                    logger.debug("Entity {d} -> Index {d}", .{ entry.key_ptr.*, entry.value_ptr.* });
+                }
             }
         }
 
@@ -201,6 +221,7 @@ pub fn ECS(
             try writer.writeInt(u32, @intCast(version.patch), .little);
 
             //try writer.writeInt(Entity, entity, .little);
+            try writer.writeInt(u32, self.nextEntity, .little);
 
             const info = @typeInfo(ComponentTypes).@"union";
             const fields = info.fields;
@@ -223,6 +244,9 @@ pub fn ECS(
             const minor = try reader.takeInt(u32, .little);
             const patch = try reader.takeInt(u32, .little);
             const saveVersion = std.SemanticVersion{ .major = major, .minor = minor, .patch = patch };
+
+            const nextEntity = try reader.takeInt(u32, .little);
+            self.nextEntity = nextEntity;
 
             while (true) {
                 _ = reader.peek(1) catch break;
