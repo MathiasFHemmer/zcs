@@ -18,6 +18,7 @@ pub fn SparseSet(comptime T: type) type {
         /// Maps the Entity to the index of the Dense array
         sparse: std.hash_map.AutoHashMapUnmanaged(Entity, u32),
 
+        /// An empty SparseSet, with all backing data structures as empty.
         pub const empty = Self{
             .dense = .empty,
             .entities = .empty,
